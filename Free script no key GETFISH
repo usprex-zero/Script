@@ -1,0 +1,245 @@
+-- [[ DUALITY HUB - SIMPLE AUTO FISHING ]]
+-- Simple GUI with Auto Fishing and 2 Delay Inputs
+-- For Delta Executor
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local pgui = player:WaitForChild("PlayerGui")
+
+local _G = {
+    autofishing = false,
+    fishingDelay = 2.5,
+    catchDelay = 0.8
+}
+
+-- Simple GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "DualityHub_Simple"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = pgui
+
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 300, 0, 220)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -110)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Visible = true
+
+local corner = Instance.new("UICorner", MainFrame)
+corner.CornerRadius = UDim.new(0, 10)
+
+local stroke = Instance.new("UIStroke", MainFrame)
+stroke.Color = Color3.fromRGB(0, 180, 255)
+stroke.Thickness = 2
+
+-- Title
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Text = "🎣 SIMPLE FISHING"
+Title.Font = Enum.Font.GothamBold
+Title.TextColor3 = Color3.fromRGB(0, 180, 255)
+Title.TextSize = 18
+Title.BackgroundTransparency = 1
+
+-- Auto Fishing Toggle
+local FishingToggle = Instance.new("TextButton", MainFrame)
+FishingToggle.Size = UDim2.new(0.8, 0, 0, 40)
+FishingToggle.Position = UDim2.new(0.1, 0, 0, 50)
+FishingToggle.Text = "Auto Fishing: OFF"
+FishingToggle.Font = Enum.Font.GothamSemibold
+FishingToggle.TextColor3 = Color3.new(1, 1, 1)
+FishingToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+FishingToggle.AutoButtonColor = false
+
+local toggleCorner = Instance.new("UICorner", FishingToggle)
+toggleCorner.CornerRadius = UDim.new(0, 8)
+
+FishingToggle.MouseButton1Click:Connect(function()
+    _G.autofishing = not _G.autofishing
+    FishingToggle.Text = "Auto Fishing: " .. (_G.autofishing and "ON 🟢" or "OFF 🔴")
+    FishingToggle.BackgroundColor3 = _G.autofishing and Color3.fromRGB(0, 150, 100) or Color3.fromRGB(40, 40, 55)
+    
+    if _G.autofishing then
+        StartAutoFishing()
+    else
+        print("[Simple Fishing] Auto fishing stopped")
+    end
+end)
+
+-- Fishing Delay Input
+local FishingDelayFrame = Instance.new("Frame", MainFrame)
+FishingDelayFrame.Size = UDim2.new(0.8, 0, 0, 50)
+FishingDelayFrame.Position = UDim2.new(0.1, 0, 0, 100)
+FishingDelayFrame.BackgroundTransparency = 1
+
+local FishingDelayLabel = Instance.new("TextLabel", FishingDelayFrame)
+FishingDelayLabel.Size = UDim2.new(1, 0, 0, 20)
+FishingDelayLabel.Text = "Fishing Delay:"
+FishingDelayLabel.Font = Enum.Font.Gotham
+FishingDelayLabel.TextColor3 = Color3.new(1, 1, 1)
+FishingDelayLabel.TextXAlignment = Enum.TextXAlignment.Left
+FishingDelayLabel.BackgroundTransparency = 1
+
+local FishingDelayBox = Instance.new("TextBox", FishingDelayFrame)
+FishingDelayBox.Size = UDim2.new(1, 0, 0, 25)
+FishingDelayBox.Position = UDim2.new(0, 0, 0, 20)
+FishingDelayBox.Text = tostring(_G.fishingDelay)
+FishingDelayBox.Font = Enum.Font.Gotham
+FishingDelayBox.TextColor3 = Color3.new(1, 1, 1)
+FishingDelayBox.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+FishingDelayBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+
+local delayCorner = Instance.new("UICorner", FishingDelayBox)
+delayCorner.CornerRadius = UDim.new(0, 6)
+
+FishingDelayBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        local value = tonumber(FishingDelayBox.Text)
+        if value then
+            _G.fishingDelay = value
+            FishingDelayBox.Text = tostring(value)
+            print("[Simple Fishing] Fishing delay set to:", value)
+        else
+            FishingDelayBox.Text = tostring(_G.fishingDelay)
+        end
+    end
+end)
+
+-- Catch Delay Input
+local CatchDelayFrame = Instance.new("Frame", MainFrame)
+CatchDelayFrame.Size = UDim2.new(0.8, 0, 0, 50)
+CatchDelayFrame.Position = UDim2.new(0.1, 0, 0, 160)
+CatchDelayFrame.BackgroundTransparency = 1
+
+local CatchDelayLabel = Instance.new("TextLabel", CatchDelayFrame)
+CatchDelayLabel.Size = UDim2.new(1, 0, 0, 20)
+CatchDelayLabel.Text = "Catch Delay:"
+CatchDelayLabel.Font = Enum.Font.Gotham
+CatchDelayLabel.TextColor3 = Color3.new(1, 1, 1)
+CatchDelayLabel.TextXAlignment = Enum.TextXAlignment.Left
+CatchDelayLabel.BackgroundTransparency = 1
+
+local CatchDelayBox = Instance.new("TextBox", CatchDelayFrame)
+CatchDelayBox.Size = UDim2.new(1, 0, 0, 25)
+CatchDelayBox.Position = UDim2.new(0, 0, 0, 20)
+CatchDelayBox.Text = tostring(_G.catchDelay)
+CatchDelayBox.Font = Enum.Font.Gotham
+CatchDelayBox.TextColor3 = Color3.new(1, 1, 1)
+CatchDelayBox.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+CatchDelayBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+
+local catchCorner = Instance.new("UICorner", CatchDelayBox)
+catchCorner.CornerRadius = UDim.new(0, 6)
+
+CatchDelayBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        local value = tonumber(CatchDelayBox.Text)
+        if value then
+            _G.catchDelay = value
+            CatchDelayBox.Text = tostring(value)
+            print("[Simple Fishing] Catch delay set to:", value)
+        else
+            CatchDelayBox.Text = tostring(_G.catchDelay)
+        end
+    end
+end)
+
+-- Auto Fishing Function
+local function StartAutoFishing()
+    task.spawn(function()
+        while _G.autofishing do
+            local char = player.Character
+            local rod = char and char:FindFirstChildOfClass("Tool")
+            
+            if rod and rod.Name:match("ROD$") then
+                local uuid = rod:GetAttribute("ToolUniqueId")
+                if uuid then
+                    -- Throw the fishing line
+                    ReplicatedStorage.Fishing_RemoteThrow:FireServer(0.444, uuid)
+                    
+                    -- Bobber action 5 times
+                    local bS = ReplicatedStorage:FindFirstChild("BobberShop")
+                    if bS then 
+                        for i = 1, 5 do 
+                            pcall(function() 
+                                bS.ToServer.GetEquippedBobber:InvokeServer() 
+                            end) 
+                        end 
+                    end
+                    
+                    -- Bite action 5 times
+                    local fS = ReplicatedStorage:FindFirstChild("Fishing")
+                    if fS then 
+                        for i = 1, 5 do 
+                            pcall(function() 
+                                fS.ToClient.StartBite:FireServer() 
+                            end) 
+                        end 
+                    end
+                    
+                    -- Wait for fishing delay
+                    task.wait(_G.fishingDelay)
+                    
+                    if not _G.autofishing then break end
+                    
+                    -- Reel in the fish
+                    ReplicatedStorage.Fishing.ToServer.ReelFinished:FireServer({
+                        duration = math.random(20, 40)/10, 
+                        result = "SUCCESS", 
+                        insideRatio = 1
+                    }, uuid)
+                    
+                    -- Wait for catch delay before next throw
+                    task.wait(_G.catchDelay)
+                end
+            else
+                -- No rod found, wait a bit and try again
+                print("[Simple Fishing] No fishing rod found, waiting...")
+            end
+            
+            task.wait(0.5)
+        end
+    end)
+    
+    print("[Simple Fishing] Auto fishing started!")
+    print("Fishing Delay:", _G.fishingDelay)
+    print("Catch Delay:", _G.catchDelay)
+end
+
+-- Make the GUI draggable
+local drag, dInput, dStart, sPos
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then 
+        drag = true 
+        dStart = input.Position 
+        sPos = MainFrame.Position 
+    end
+end)
+
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then 
+        dInput = input 
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dInput and drag then
+        local delta = input.Position - dStart
+        MainFrame.Position = UDim2.new(
+            sPos.X.Scale, sPos.X.Offset + delta.X,
+            sPos.Y.Scale, sPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then 
+        drag = false 
+    end
+end)
+
+print("[Simple Fishing] Script loaded successfully!")
+print("Ready to fish!")
