@@ -1,6 +1,5 @@
--- [[ DUALITY HUB - SIMPLE AUTO FISHING ]]
--- Simple GUI with Auto Fishing and 2 Delay Inputs
--- For Delta Executor
+-- [[ DUALITY HUB - WORKING AUTO FISHING ]]
+-- Fixed remotes with proper sequence
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -8,22 +7,24 @@ local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local pgui = player:WaitForChild("PlayerGui")
+local backpack = player:WaitForChild("Backpack")
 
 local _G = {
     autofishing = false,
     fishingDelay = 2.5,
-    catchDelay = 0.8
+    catchDelay = 0.8,
+    autoEquipRod = true
 }
 
 -- Simple GUI
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "DualityHub_Simple"
+ScreenGui.Name = "DualityHub_Fishing"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = pgui
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 300, 0, 220)
-MainFrame.Position = UDim2.new(0.5, -150, 0.5, -110)
+MainFrame.Size = UDim2.new(0, 300, 0, 250)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -125)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 MainFrame.BorderSizePixel = 0
 MainFrame.Visible = true
@@ -38,7 +39,7 @@ stroke.Thickness = 2
 -- Title
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 40)
-Title.Text = "🎣 SIMPLE FISHING"
+Title.Text = "🎣 AUTO FISHING"
 Title.Font = Enum.Font.GothamBold
 Title.TextColor3 = Color3.fromRGB(0, 180, 255)
 Title.TextSize = 18
@@ -54,20 +55,7 @@ FishingToggle.TextColor3 = Color3.new(1, 1, 1)
 FishingToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
 FishingToggle.AutoButtonColor = false
 
-local toggleCorner = Instance.new("UICorner", FishingToggle)
-toggleCorner.CornerRadius = UDim.new(0, 8)
-
-FishingToggle.MouseButton1Click:Connect(function()
-    _G.autofishing = not _G.autofishing
-    FishingToggle.Text = "Auto Fishing: " .. (_G.autofishing and "ON 🟢" or "OFF 🔴")
-    FishingToggle.BackgroundColor3 = _G.autofishing and Color3.fromRGB(0, 150, 100) or Color3.fromRGB(40, 40, 55)
-    
-    if _G.autofishing then
-        StartAutoFishing()
-    else
-        print("[Simple Fishing] Auto fishing stopped")
-    end
-end)
+Instance.new("UICorner", FishingToggle).CornerRadius = UDim.new(0, 8)
 
 -- Fishing Delay Input
 local FishingDelayFrame = Instance.new("Frame", MainFrame)
@@ -90,23 +78,7 @@ FishingDelayBox.Text = tostring(_G.fishingDelay)
 FishingDelayBox.Font = Enum.Font.Gotham
 FishingDelayBox.TextColor3 = Color3.new(1, 1, 1)
 FishingDelayBox.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-FishingDelayBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
-
-local delayCorner = Instance.new("UICorner", FishingDelayBox)
-delayCorner.CornerRadius = UDim.new(0, 6)
-
-FishingDelayBox.FocusLost:Connect(function(enterPressed)
-    if enterPressed then
-        local value = tonumber(FishingDelayBox.Text)
-        if value then
-            _G.fishingDelay = value
-            FishingDelayBox.Text = tostring(value)
-            print("[Simple Fishing] Fishing delay set to:", value)
-        else
-            FishingDelayBox.Text = tostring(_G.fishingDelay)
-        end
-    end
-end)
+Instance.new("UICorner", FishingDelayBox).CornerRadius = UDim.new(0, 6)
 
 -- Catch Delay Input
 local CatchDelayFrame = Instance.new("Frame", MainFrame)
@@ -129,87 +101,281 @@ CatchDelayBox.Text = tostring(_G.catchDelay)
 CatchDelayBox.Font = Enum.Font.Gotham
 CatchDelayBox.TextColor3 = Color3.new(1, 1, 1)
 CatchDelayBox.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-CatchDelayBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+Instance.new("UICorner", CatchDelayBox).CornerRadius = UDim.new(0, 6)
 
-local catchCorner = Instance.new("UICorner", CatchDelayBox)
-catchCorner.CornerRadius = UDim.new(0, 6)
+-- Auto Equip Toggle
+local EquipToggle = Instance.new("TextButton", MainFrame)
+EquipToggle.Size = UDim2.new(0.8, 0, 0, 30)
+EquipToggle.Position = UDim2.new(0.1, 0, 0, 210)
+EquipToggle.Text = "Auto Equip Rod: ON"
+EquipToggle.Font = Enum.Font.GothamSemibold
+EquipToggle.TextColor3 = Color3.new(1, 1, 1)
+EquipToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
+EquipToggle.AutoButtonColor = false
+Instance.new("UICorner", EquipToggle).CornerRadius = UDim.new(0, 6)
+
+-- Function to find fishing rod
+local function FindFishingRod()
+    local char = player.Character
+    if not char then return nil end
+    
+    -- Check if holding a rod
+    for _, tool in pairs(char:GetChildren()) do
+        if tool:IsA("Tool") and (tool.Name:match("ROD$") or tool.Name:match("Rod$") or tool.Name:match("rod$")) then
+            return tool
+        end
+    end
+    
+    -- Check backpack for rod
+    if _G.autoEquipRod then
+        for _, tool in pairs(backpack:GetChildren()) do
+            if tool:IsA("Tool") and (tool.Name:match("ROD$") or tool.Name:match("Rod$") or tool.Name:match("rod$")) then
+                tool.Parent = char
+                task.wait(0.5)  -- Wait for equip
+                return tool
+            end
+        end
+    end
+    
+    return nil
+end
+
+-- Function to get rod UUID
+local function GetRodUUID(rod)
+    if not rod then return nil end
+    
+    -- Try different methods to get UUID
+    local uuid = rod:GetAttribute("ToolUniqueId") or 
+                 rod:GetAttribute("UniqueId") or 
+                 rod:GetAttribute("UUID")
+    
+    if not uuid then
+        -- Try to find UUID in rod's children
+        for _, child in pairs(rod:GetDescendants()) do
+            if child:IsA("StringValue") and (child.Name:match("UUID") or child.Name:match("UniqueId")) then
+                uuid = child.Value
+                break
+            end
+        end
+    end
+    
+    return uuid
+end
+
+-- Fixed Auto Fishing Function
+local function StartAutoFishing()
+    task.spawn(function()
+        print("[Fishing] Starting auto fishing...")
+        
+        while _G.autofishing do
+            -- Find and equip rod
+            local rod = FindFishingRod()
+            
+            if not rod then
+                print("[Fishing] No fishing rod found! Waiting...")
+                task.wait(2)
+                continue
+            end
+            
+            print("[Fishing] Found rod:", rod.Name)
+            
+            -- Get UUID
+            local uuid = GetRodUUID(rod)
+            
+            if not uuid then
+                print("[Fishing] Could not get rod UUID!")
+                task.wait(1)
+                continue
+            end
+            
+            print("[Fishing] Using UUID:", uuid)
+            
+            -- SEQUENCE 1: Try Fishing_RemoteThrow first
+            local success1 = pcall(function()
+                local throwEvent = ReplicatedStorage:FindFirstChild("Fishing_RemoteThrow")
+                if throwEvent then
+                    throwEvent:FireServer(0.444, uuid)
+                    print("[Fishing] Throw successful!")
+                    return true
+                end
+                return false
+            end)
+            
+            -- If first method fails, try alternatives
+            if not success1 then
+                print("[Fishing] Trying alternative throw methods...")
+                
+                -- Method 2: Try different remote names
+                local alternativeRemotes = {
+                    "RemoteThrow",
+                    "FishingThrow",
+                    "ThrowFishing",
+                    "FishThrow",
+                    "ThrowRod"
+                }
+                
+                for _, remoteName in pairs(alternativeRemotes) do
+                    local remote = ReplicatedStorage:FindFirstChild(remoteName)
+                    if remote then
+                        pcall(function()
+                            remote:FireServer(0.444, uuid)
+                            print("[Fishing] Used alternative remote:", remoteName)
+                        end)
+                        break
+                    end
+                end
+            end
+            
+            task.wait(0.5)
+            
+            -- SEQUENCE 2: Try BobberShop
+            local bobberShop = ReplicatedStorage:FindFirstChild("BobberShop")
+            if bobberShop then
+                local toServer = bobberShop:FindFirstChild("ToServer")
+                if toServer then
+                    local getBobber = toServer:FindFirstChild("GetEquippedBobber")
+                    if getBobber then
+                        for i = 1, 5 do
+                            pcall(function()
+                                getBobber:InvokeServer()
+                            end)
+                            task.wait(0.1)
+                        end
+                        print("[Fishing] Bobber action completed")
+                    end
+                end
+            end
+            
+            task.wait(0.5)
+            
+            -- SEQUENCE 3: Try Fishing bite
+            local fishing = ReplicatedStorage:FindFirstChild("Fishing")
+            if fishing then
+                local toClient = fishing:FindFirstChild("ToClient")
+                if toClient then
+                    local startBite = toClient:FindFirstChild("StartBite")
+                    if startBite then
+                        for i = 1, 5 do
+                            pcall(function()
+                                startBite:FireServer()
+                            end)
+                            task.wait(0.1)
+                        end
+                        print("[Fishing] Bite action completed")
+                    end
+                end
+            end
+            
+            -- Wait fishing delay
+            task.wait(_G.fishingDelay)
+            
+            if not _G.autofishing then break end
+            
+            -- SEQUENCE 4: Reel in
+            local success4 = pcall(function()
+                local fishing = ReplicatedStorage:FindFirstChild("Fishing")
+                if fishing then
+                    local toServer = fishing:FindFirstChild("ToServer")
+                    if toServer then
+                        local reelFinished = toServer:FindFirstChild("ReelFinished")
+                        if reelFinished then
+                            reelFinished:FireServer({
+                                duration = math.random(20, 40) / 10,
+                                result = "SUCCESS",
+                                insideRatio = 1
+                            }, uuid)
+                            print("[Fishing] Reel successful!")
+                            return true
+                        end
+                    end
+                end
+                return false
+            end)
+            
+            -- If reel failed, try alternatives
+            if not success4 then
+                print("[Fishing] Trying alternative reel methods...")
+                
+                local alternativeReels = {
+                    "ReelFinished",
+                    "FinishReel",
+                    "ReelComplete",
+                    "FinishFishing"
+                }
+                
+                for _, reelName in pairs(alternativeReels) do
+                    local remote = ReplicatedStorage:FindFirstChild(reelName)
+                    if remote then
+                        pcall(function()
+                            remote:FireServer({
+                                duration = math.random(20, 40) / 10,
+                                result = "SUCCESS",
+                                insideRatio = 1
+                            }, uuid)
+                            print("[Fishing] Used alternative reel:", reelName)
+                        end)
+                        break
+                    end
+                end
+            end
+            
+            -- Wait catch delay
+            task.wait(_G.catchDelay)
+            
+            print("[Fishing] Cycle completed, starting next...")
+        end
+        
+        print("[Fishing] Auto fishing stopped")
+    end)
+end
+
+-- Button Events
+FishingToggle.MouseButton1Click:Connect(function()
+    _G.autofishing = not _G.autofishing
+    FishingToggle.Text = "Auto Fishing: " .. (_G.autofishing and "ON 🟢" or "OFF 🔴")
+    FishingToggle.BackgroundColor3 = _G.autofishing and Color3.fromRGB(0, 150, 100) or Color3.fromRGB(40, 40, 55)
+    
+    if _G.autofishing then
+        StartAutoFishing()
+    else
+        print("[Fishing] Stopping...")
+    end
+end)
+
+FishingDelayBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        local value = tonumber(FishingDelayBox.Text)
+        if value and value > 0 then
+            _G.fishingDelay = value
+            FishingDelayBox.Text = tostring(value)
+            print("[Fishing] Fishing delay set to:", value)
+        else
+            FishingDelayBox.Text = tostring(_G.fishingDelay)
+        end
+    end
+end)
 
 CatchDelayBox.FocusLost:Connect(function(enterPressed)
     if enterPressed then
         local value = tonumber(CatchDelayBox.Text)
-        if value then
+        if value and value > 0 then
             _G.catchDelay = value
             CatchDelayBox.Text = tostring(value)
-            print("[Simple Fishing] Catch delay set to:", value)
+            print("[Fishing] Catch delay set to:", value)
         else
             CatchDelayBox.Text = tostring(_G.catchDelay)
         end
     end
 end)
 
--- Auto Fishing Function
-local function StartAutoFishing()
-    task.spawn(function()
-        while _G.autofishing do
-            local char = player.Character
-            local rod = char and char:FindFirstChildOfClass("Tool")
-            
-            if rod and rod.Name:match("ROD$") then
-                local uuid = rod:GetAttribute("ToolUniqueId")
-                if uuid then
-                    -- Throw the fishing line
-                    ReplicatedStorage.Fishing_RemoteThrow:FireServer(0.444, uuid)
-                    
-                    -- Bobber action 5 times
-                    local bS = ReplicatedStorage:FindFirstChild("BobberShop")
-                    if bS then 
-                        for i = 1, 5 do 
-                            pcall(function() 
-                                bS.ToServer.GetEquippedBobber:InvokeServer() 
-                            end) 
-                        end 
-                    end
-                    
-                    -- Bite action 5 times
-                    local fS = ReplicatedStorage:FindFirstChild("Fishing")
-                    if fS then 
-                        for i = 1, 5 do 
-                            pcall(function() 
-                                fS.ToClient.StartBite:FireServer() 
-                            end) 
-                        end 
-                    end
-                    
-                    -- Wait for fishing delay
-                    task.wait(_G.fishingDelay)
-                    
-                    if not _G.autofishing then break end
-                    
-                    -- Reel in the fish
-                    ReplicatedStorage.Fishing.ToServer.ReelFinished:FireServer({
-                        duration = math.random(20, 40)/10, 
-                        result = "SUCCESS", 
-                        insideRatio = 1
-                    }, uuid)
-                    
-                    -- Wait for catch delay before next throw
-                    task.wait(_G.catchDelay)
-                end
-            else
-                -- No rod found, wait a bit and try again
-                print("[Simple Fishing] No fishing rod found, waiting...")
-            end
-            
-            task.wait(0.5)
-        end
-    end)
-    
-    print("[Simple Fishing] Auto fishing started!")
-    print("Fishing Delay:", _G.fishingDelay)
-    print("Catch Delay:", _G.catchDelay)
-end
+EquipToggle.MouseButton1Click:Connect(function()
+    _G.autoEquipRod = not _G.autoEquipRod
+    EquipToggle.Text = "Auto Equip Rod: " .. (_G.autoEquipRod and "ON 🟢" or "OFF 🔴")
+    EquipToggle.BackgroundColor3 = _G.autoEquipRod and Color3.fromRGB(0, 150, 100) or Color3.fromRGB(40, 40, 55)
+    print("[Fishing] Auto equip rod:", _G.autoEquipRod and "ON" or "OFF")
+end)
 
--- Make the GUI draggable
+-- Make draggable
 local drag, dInput, dStart, sPos
 MainFrame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then 
@@ -241,5 +407,37 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
-print("[Simple Fishing] Script loaded successfully!")
-print("Ready to fish!")
+-- Debug: Print available fishing remotes
+print("\n=== AUTO FISHING SCRIPT ===")
+print("Scanning for fishing remotes...")
+
+task.spawn(function()
+    task.wait(2)
+    
+    print("\n[DEBUG] Available remotes in ReplicatedStorage:")
+    local fishingRemotes = {}
+    
+    for _, child in pairs(ReplicatedStorage:GetChildren()) do
+        local nameLower = string.lower(child.Name)
+        if string.find(nameLower, "fish") or 
+           string.find(nameLower, "rod") or 
+           string.find(nameLower, "bobber") or 
+           string.find(nameLower, "reel") or 
+           string.find(nameLower, "throw") then
+            table.insert(fishingRemotes, child.Name)
+        end
+    end
+    
+    if #fishingRemotes > 0 then
+        for i, remote in ipairs(fishingRemotes) do
+            print(i .. ". " .. remote)
+        end
+    else
+        print("No fishing remotes found!")
+    end
+    
+    print("\n=== READY ===")
+    print("Click 'Auto Fishing: OFF' to start!")
+end)
+
+print("Script loaded successfully!")
